@@ -11,7 +11,9 @@ Usage (from the project folder):
   python <skill>/scripts/analyze_ref.py [--threshold 0.3]
 
 Writes plan/reference/analysis.json and, as available, shots.jpg (one frame per shot),
-opening.jpg (first 3 s every 0.5 s) and images.jpg (the still references).
+opening.jpg (first 3 s every 0.5 s), timeline.jpg (the whole video every 0.5 s: builds inside
+shots, camera paths and transitions only show here) and images.jpg (the still references).
+Audio is measured, not just detected: a track can exist and still be silent.
 Numbers are measurements; the style itself is judged by looking at the sheets.
 """
 import argparse
@@ -120,6 +122,19 @@ def analyze_video(ffmpeg, ffprobe, video, frames, out, threshold):
         grab(ffmpeg, video, t, frames / f"open-{i:02d}.jpg")
     sheet(ffmpeg, frames, "open", len(opening), out / "opening.jpg", cols=len(opening))
 
+    # Whole video every 0.5 s (every 1 s past 24 s), so nothing between shot midpoints is missed.
+    step = 0.5 if info["duration"] <= 24 else 1.0
+    run([ffmpeg, "-y", "-loglevel", "error", "-i", str(video), "-vf",
+         f"fps={1 / step},scale=240:-2,tile=8x{math.ceil(info['duration'] / step / 8)}:padding=4:color=0x111111",
+         "-frames:v", "1", "-q:v", "3", str(out / "timeline.jpg")])
+
+    audio = None
+    if info["has_audio"]:
+        err = run([ffmpeg, "-hide_banner", "-i", str(video), "-af", "ebur128", "-f", "null", "-"]).stderr
+        m = re.findall(r"I:\s+(-?[\d.]+) LUFS", err[err.rfind("Summary:"):])
+        lufs = float(m[0]) if m else None
+        audio = {"loudness_lufs": lufs, "silent": lufs is None or lufs < -50}
+
     result = {
         "video": {"file": video.name, **info, "aspect": aspect(info["width"], info["height"])},
         "cuts": [round(c, 2) for c in cuts],
@@ -129,8 +144,10 @@ def analyze_video(ffmpeg, ffprobe, video, frames, out, threshold):
         "cuts_per_10s": round(len(cuts) / info["duration"] * 10, 1),
         "motion_inside_shots": round(statistics.mean(motion), 4) if motion else 0,
         "shot_times": [round(t, 2) for t in mids],
+        "audio": audio,
     }
-    sheets = {"shots": (out / "shots.jpg").as_posix(), "opening": (out / "opening.jpg").as_posix()}
+    sheets = {"shots": (out / "shots.jpg").as_posix(), "opening": (out / "opening.jpg").as_posix(),
+              "timeline": (out / "timeline.jpg").as_posix()}
     return result, [(video, t) for t in mids[:12]], sheets
 
 
@@ -192,6 +209,8 @@ def main():
         print(f"{vi['file']}: {vi['width']}x{vi['height']} {vi['fps']}fps {vi['duration']:.1f}s, audio: {vi['has_audio']}")
         print(f"shots: {analysis['shots']}, median {sl.get('median', '-')}s, {analysis['cuts_per_10s']} cuts per 10s")
         print(f"motion inside shots: {analysis['motion_inside_shots']} (relative: compare with the sheets, higher = more movement)")
+        au = analysis["audio"]
+        print("audio: none" if not au else f"audio: {au['loudness_lufs']} LUFS" + (" (silent track)" if au["silent"] else " (has sound: listen for music and effects)"))
     if stills:
         print(f"still references: {len(analysis['images'])} ({', '.join(i['file'] for i in analysis['images'][:6])})")
         if not videos:

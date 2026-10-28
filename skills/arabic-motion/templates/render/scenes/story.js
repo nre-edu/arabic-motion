@@ -15,22 +15,42 @@ const MOOD = {
 };
 
 const lastEnd = () => S.leadIn + B.beats[B.beats.length - 1].end + S.tail;
+const clamp01 = (v) => Math.min(1, Math.max(0, v));
 
 function shots() {
   // One shot per image; a segment with several images splits its time evenly.
   // A segment runs from its start to the next segment's start, so pauses stay on screen.
+  // With image.split, a long single-image segment gets a second "detail" shot: the camera
+  // moves closer to a point of the same image, keeping the reference's shot pace.
   const out = [];
+  const split = S.image.split;
   B.beats.forEach((b, i) => {
     const from = S.leadIn + b.start;
     const to = i + 1 < B.beats.length ? S.leadIn + B.beats[i + 1].start : lastEnd();
     const files = b.image_files?.length ? b.image_files : [null];
     files.forEach((f, k) => {
       const len = (to - from) / files.length;
-      out.push({ beat: i, image: f, start: from + k * len, end: from + (k + 1) * len });
+      const s0 = from + k * len;
+      if (split && f && files.length === 1 && len >= (split.minSegment ?? 6)) {
+        const focus = split.details?.[f] ?? [0.5, 0.5, split.defaultZoom ?? 1.35];
+        const mid = s0 + len * (split.at ?? 0.5);
+        out.push({ beat: i, image: f, start: s0, end: mid });
+        out.push({ beat: i, image: f, start: mid, end: s0 + len, detail: true, focus });
+      } else {
+        out.push({ beat: i, image: f, start: s0, end: s0 + len });
+      }
     });
   });
   if (S.endCard) out.push({ beat: -1, endCard: true, start: lastEnd(), end: lastEnd() + S.endCard.dur });
   return out;
+}
+
+// The transition that brings a shot in: detail shots move the camera instead of cutting,
+// and the end card may have its own transition.
+function transitionFor(shot) {
+  if (shot.detail) return { type: 'camera', dur: S.image.split?.moveDur ?? 0.9 };
+  if (shot.endCard && S.endCard.transition) return S.endCard.transition;
+  return S.transition;
 }
 
 const scene = {
@@ -55,7 +75,8 @@ const scene = {
     const sfx = S.sfx ?? {};
     const gain = sfx.gain ?? -10;
     shots().forEach((s, i) => {
-      if (i > 0 && sfx.transition) list.push({ at: +(s.start - 0.08).toFixed(3), sound: sfx.transition, gain });
+      const tr = transitionFor(s);
+      if (i > 0 && sfx.transition && tr.type !== 'camera' && tr.type !== 'cut') list.push({ at: +(s.start - 0.08).toFixed(3), sound: sfx.transition, gain });
     });
     B.beats.forEach((b, i) => {
       const at = +textStart(b, i).toFixed(3);
@@ -84,13 +105,13 @@ const scene = {
     const maxWidth = W - 2 * T.margin;
     const place = (words, size, noImage) => {
       const probe = arabic.layout(ctx, words, { family: font.family, weight: font.weight, size, maxWidth, x: W / 2, y: 0 });
-      const vertical = W > H; // wide frames keep text in a bottom band
-      const safeTop = vertical ? 60 : 220;
-      const safeBottom = H - (vertical ? 50 : 360);
+      const wide = W > H; // wide frames keep text in a bottom band
+      const safeTop = wide ? 60 : 220;
+      const safeBottom = H - (wide ? 50 : 360);
       let y;
       if (noImage || T.position === 'center') y = (H - probe.height) / 2;
       else if (T.position === 'top') y = safeTop;
-      else if (S.image.layout === 'card' && !vertical) y = Math.min(S.image.area.y + S.image.area.h + 70, safeBottom - probe.height);
+      else if (S.image.layout === 'card' && !wide) y = Math.min(S.image.area.y + S.image.area.h + 70, safeBottom - probe.height);
       else y = safeBottom - probe.height;
       return arabic.layout(ctx, words, { family: font.family, weight: font.weight, size, maxWidth, x: W / 2, y });
     };
@@ -116,6 +137,12 @@ const scene = {
       });
     });
 
+    // Short floating labels per segment (text.labels: {"<segment n>": "label"}), revealed by a mask.
+    const L = T.labels ?? {};
+    const lf = S.fonts.label ?? font;
+    const labels = B.beats.map((b) =>
+      L[b.n] ? arabic.layout(ctx, L[b.n], { family: lf.family, weight: lf.weight ?? 700, size: T.labelSize ?? 46, maxWidth: W * 0.8, x: W / 2, y: T.labelY ?? 30 }) : null);
+
     // End card text.
     let end = null;
     if (S.endCard) {
@@ -126,7 +153,7 @@ const scene = {
         : null;
       end = { title, sub };
     }
-    return { images, texts, shots: shots(), end };
+    return { images, texts, labels, shots: shots(), end };
   },
 
   draw(ctx, t, api, st) {
@@ -137,16 +164,32 @@ const scene = {
     const i = Math.max(0, st.shots.findIndex((s) => t >= s.start && t < s.end));
     const idx = t >= st.shots[st.shots.length - 1].start ? st.shots.length - 1 : i;
     const cur = st.shots[idx];
-    const tr = S.transition;
-    const tp = idx > 0 && tr.type !== 'cut' ? ease.inOutCubic(progress(t, cur.start, tr.dur)) : 1;
-    if (tp < 1) drawShot(ctx, api, st, st.shots[idx - 1], t, 1 - tp, tr.type, 'out');
-    drawShot(ctx, api, st, cur, t, tp, tr.type, 'in');
+    const prevShot = idx > 0 ? st.shots[idx - 1] : null;
+    const tr = transitionFor(cur);
+    const tp = prevShot && tr.type !== 'cut' && tr.type !== 'camera' ? ease.inOutCubic(progress(t, cur.start, tr.dur)) : 1;
 
-    // Segment text. The outgoing segment's text is gone by the middle of the transition,
-    // before the new text starts, so two segments never share the screen.
-    const prev = idx > 0 ? st.shots[idx - 1] : null;
-    if (tp < 1 && prev && prev.beat !== cur.beat && prev.beat >= 0) drawText(ctx, api, st, prev.beat, t, Math.max(0, 1 - tp * 2));
-    if (cur.beat >= 0) drawText(ctx, api, st, cur.beat, t, 1);
+    if (tr.type === 'panel' && tp < 1) {
+      // A solid panel sweeps across from the right, then uncovers the new shot to the left.
+      drawShot(ctx, api, st, tp < 0.5 ? prevShot : cur, t, 1, 'cut', 'in');
+      ctx.fillStyle = tr.color ?? S.palette.accent;
+      if (tp < 0.5) ctx.fillRect(W * (1 - tp * 2), 0, W * tp * 2, H);
+      else ctx.fillRect(0, 0, W * (1 - (tp - 0.5) * 2), H);
+    } else {
+      if (tp < 1) drawShot(ctx, api, st, prevShot, t, 1 - tp, tr.type, 'out');
+      drawShot(ctx, api, st, cur, t, tp, tr.type, 'in');
+    }
+
+    // Segment text and label. The outgoing segment's text is gone by the middle of the
+    // transition, before the new text starts, so two segments never share the screen.
+    if (tp < 1 && prevShot && prevShot.beat !== cur.beat && prevShot.beat >= 0) {
+      const fade = Math.max(0, 1 - tp * 2);
+      drawLabel(ctx, api, st, prevShot.beat, t, fade);
+      drawText(ctx, api, st, prevShot.beat, t, fade);
+    }
+    if (cur.beat >= 0) {
+      drawLabel(ctx, api, st, cur.beat, t, 1);
+      drawText(ctx, api, st, cur.beat, t, 1);
+    }
 
     // Optional progress bar (right to left).
     if (S.progressBar) {
@@ -212,6 +255,26 @@ function drawText(ctx, api, st, b, t, alpha) {
   }
 }
 
+function drawLabel(ctx, api, st, b, t, alpha) {
+  const l = st.labels?.[b];
+  if (!l || alpha <= 0) return;
+  const { arabic, progress, width: W } = api;
+  const start = textStart(B.beats[b], b) - 0.05;
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  arabic.drawWords(ctx, l, t, { start, stagger: 0.12, dur: 0.7, effect: 'wipe', color: S.text.labelColor ?? S.palette.text });
+  // A thin accent line grows under the label in its reading direction.
+  const p = progress(t, start + 0.2, 0.6);
+  if (p > 0) {
+    const right = Math.max(...l.words.map((w) => w.right));
+    const left = Math.min(...l.words.map((w) => w.left));
+    const width = (right - left) * p;
+    ctx.fillStyle = S.palette.accent;
+    ctx.fillRect(arabic.hasArabic(l.words[0].text) ? right - width : left, l.words[0].bottom + 10, width, 3);
+  }
+  ctx.restore();
+}
+
 // Background: flat colour, or a gradient with slowly drifting soft glows (deterministic in t).
 function drawBackground(ctx, api, t) {
   const { width: W, height: H } = api;
@@ -257,7 +320,7 @@ function drawShot(ctx, api, st, shot, t, p, type, dir) {
   else if (type === 'whip') {
     // Fast swipe with motion blur, strongest mid-move: new shot from the right, old one out to the left.
     ctx.translate(dir === 'in' ? (1 - p) * W : -(1 - p) * W, 0);
-    const blur = (S.transition.blur ?? 28) * Math.sin(Math.PI * Math.min(1, Math.max(0, p)));
+    const blur = (S.transition.blur ?? 28) * Math.sin(Math.PI * clamp01(p));
     if (blur > 0.5) ctx.filter = `blur(${blur.toFixed(1)}px)`;
   } else if (type === 'wipe' && dir === 'in') {
     ctx.beginPath();
@@ -273,36 +336,16 @@ function drawShot(ctx, api, st, shot, t, p, type, dir) {
 
   const img = shot.image ? st.images[shot.image] : null;
   if (img) {
-    const k = progress(t, shot.start, shot.end - shot.start);
     const m = S.image.motion;
     const amount = S.image.amount ?? 0.06;
+    // A detail shot continues the previous shot's push, so the camera never jumps back.
+    const span = shot.detail ? st.shots.filter((s) => s.beat === shot.beat && s.image === shot.image) : [shot];
+    const k = progress(t, span[0].start, span[span.length - 1].end - span[0].start);
     const zoom = m === 'push-in' ? lerp(1, 1 + amount, k) : m === 'pull-out' ? lerp(1 + amount, 1, k) : 1;
     const panX = m === 'pan' ? lerp(1, -1, ease.inOutQuad(k)) * amount * 400 : 0;
     const layout = S.image.layout;
     if (layout === 'float') {
-      // The image is a floating panel: its frame fits the whole image, and the camera push
-      // grows the panel itself, so nothing inside it is ever cropped.
-      const a = S.image.area;
-      const base = Math.min(a.w / img.width, a.h / img.height) / (m === 'push-in' || m === 'pull-out' ? 1 + amount : 1);
-      const w = img.width * base * zoom;
-      const h = img.height * base * zoom;
-      const x = a.x + (a.w - w) / 2 + panX;
-      const y = a.y + (a.h - h) / 2;
-      const r = S.image.radius ?? 0;
-      ctx.save();
-      ctx.shadowColor = S.image.glow ?? 'rgba(0,0,0,0.45)';
-      ctx.shadowBlur = S.image.glowSize ?? 50;
-      ctx.fillStyle = S.palette.surface;
-      ctx.beginPath();
-      ctx.roundRect(x, y, w, h, r);
-      ctx.fill();
-      ctx.restore();
-      ctx.save();
-      ctx.beginPath();
-      ctx.roundRect(x, y, w, h, r);
-      ctx.clip();
-      ctx.drawImage(img, x, y, w, h);
-      ctx.restore();
+      drawFloat(ctx, api, st, shot, img, t, zoom, panX, k);
     } else {
       const full = layout === 'full';
       const a = full ? { x: 0, y: 0, w: W, h: H } : S.image.area;
@@ -333,15 +376,98 @@ function drawShot(ctx, api, st, shot, t, p, type, dir) {
   ctx.restore();
 }
 
+// Floating panel: the frame fits the whole image, the camera push grows the panel itself,
+// a slow sideways drift adds depth, a detail shot moves closer to a point inside the image,
+// and a new image "builds" in with a scale-up and a light sweep.
+function drawFloat(ctx, api, st, shot, img, t, zoom, panX, k) {
+  const { width: W, lerp, progress, ease } = api;
+  const I = S.image;
+  const a = I.area;
+  const amount = I.amount ?? 0.06;
+  const pushes = I.motion === 'push-in' || I.motion === 'pull-out';
+  const base = Math.min(a.w / img.width, a.h / img.height) / (pushes ? 1 + amount : 1);
+  const build = I.build && !shot.detail ? ease.outCubic(progress(t, shot.start, I.build.dur ?? 0.8)) : 1;
+  const grow = lerp(I.build?.from ?? 0.92, 1, build);
+  const w = img.width * base * zoom * grow;
+  const h = img.height * base * zoom * grow;
+  const drift = lerp(1, -1, k) * (I.drift ?? 0) * W;
+  const x = a.x + (a.w - w) / 2 + panX + drift;
+  const y = a.y + (a.h - h) / 2;
+  const r = I.radius ?? 0;
+
+  ctx.save();
+  ctx.globalAlpha *= I.build && !shot.detail ? clamp01(build * 1.4) : 1;
+  ctx.shadowColor = I.glow ?? 'rgba(0,0,0,0.45)';
+  ctx.shadowBlur = I.glowSize ?? 50;
+  ctx.fillStyle = S.palette.surface;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+  ctx.clip();
+
+  // Camera inside the panel: 1 for normal shots; for a detail shot it moves to focus[2]
+  // around the focus point, without leaving any part of the panel empty.
+  let z = 1, fx = 0.5, fy = 0.5;
+  if (shot.detail) {
+    [fx, fy] = shot.focus;
+    z = lerp(1, shot.focus[2], ease.inOutCubic(progress(t, shot.start, transitionFor(shot).dur)));
+  }
+  const iw = w * z, ih = h * z;
+  const ix = Math.min(x, Math.max(x + w - iw, x + w / 2 - fx * iw));
+  const iy = Math.min(y, Math.max(y + h - ih, y + h / 2 - fy * ih));
+  ctx.drawImage(img, ix, iy, iw, ih);
+
+  // Light sweep across the panel as it builds in (right to left, like reading).
+  if (I.build?.sweep && !shot.detail) {
+    const sp = progress(t, shot.start + 0.15, I.build.sweepDur ?? 1.0);
+    if (sp > 0 && sp < 1) {
+      const cx = x + w * lerp(1.3, -0.3, ease.inOutQuad(sp));
+      const g = ctx.createLinearGradient(cx - w * 0.18, y, cx + w * 0.18, y + h);
+      g.addColorStop(0, 'rgba(255,255,255,0)');
+      g.addColorStop(0.5, 'rgba(255,255,255,0.35)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(x, y, w, h);
+    }
+  }
+  ctx.restore();
+}
+
 function drawEndCard(ctx, api, st, t, shot) {
   const { width: W, height: H, arabic } = api;
   const E = S.endCard;
   ctx.fillStyle = E.bg ?? S.palette.bg;
   ctx.fillRect(0, 0, W, H);
+  if (E.glow) {
+    const g = ctx.createRadialGradient(W / 2, H * 1.1, 0, W / 2, H * 1.1, W * 0.6);
+    g.addColorStop(0, E.glow);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
+  if (E.halftone) {
+    // Dot pattern fading out from the top-right corner (the reading start in Arabic).
+    ctx.fillStyle = E.halftone;
+    const step = Math.round(W * 0.012), reach = W * 0.2;
+    for (let yy = step / 2; yy < reach; yy += step) {
+      for (let xx = W - step / 2; xx > W - reach; xx -= step) {
+        const d = Math.hypot(W - xx, yy) / reach;
+        const rr = step * 0.36 * (1 - d);
+        if (rr > 0.4) {
+          ctx.beginPath();
+          ctx.arc(xx, yy, rr, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+  }
   if (E.accent) {
     ctx.fillStyle = E.accent;
-    const bar = Math.min(1, Math.max(0, (t - shot.start - 0.2) / 0.6));
-    ctx.fillRect(W / 2 - (W * 0.08 * bar), st.end.title.words[0].top - H * 0.06, W * 0.16 * bar, 6);
+    const bar = clamp01((t - shot.start - 0.2) / 0.6);
+    ctx.fillRect(W / 2 - W * 0.08 * bar, st.end.title.words[0].top - H * 0.06, W * 0.16 * bar, 6);
   }
   arabic.drawWords(ctx, st.end.title, t, { start: shot.start + 0.3, stagger: 0.08, dur: 0.5, effect: 'rise', color: E.titleColor ?? S.palette.text });
   if (st.end.sub) arabic.drawWords(ctx, st.end.sub, t, { start: shot.start + 0.9, stagger: 0.06, dur: 0.5, effect: 'fade', color: E.subtitleColor ?? S.palette.muted });

@@ -145,12 +145,14 @@ export function drawWords(ctx, l, t, { start = 0, stagger = 0.08, dur = 0.5, eff
       ctx.globalAlpha *= e;
       ctx.filter = `blur(${lerp(14, 0, e).toFixed(2)}px)`;
     } else if (effect === 'wipe') {
-      // Mask reveal from the right edge (reading direction). Padding keeps dots and tails inside.
+      // Mask reveal in the word's own reading direction: Arabic from the right, Latin from the left.
+      // Padding keeps dots and tails inside.
       const padY = l.size * 0.35;
       const padX = l.size * 0.15;
       const width = (w.width + padX * 2) * e;
+      const x0 = hasArabic(w.text) ? w.right + padX - width : w.left - padX;
       ctx.beginPath();
-      ctx.rect(w.right + padX - width, w.top - padY, width, w.bottom - w.top + padY * 2);
+      ctx.rect(x0, w.top - padY, width, w.bottom - w.top + padY * 2);
       ctx.clip();
     }
     drawWord(ctx, l, w, { color: fill });

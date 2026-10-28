@@ -72,6 +72,6 @@ Pass the single-file text as the system prompt (system message). No discovery me
 
 | Skill | Zip (paths A, skills upload) | Text-only zip (no code) | Single-file text (paths D, E) | Cursor rule (path C) |
 |---|---|---|---|---|
-| `arabic-motion` | https://raw.githubusercontent.com/nre-edu/arabic-motion/main/install/arabic-motion.zip (274 KB) | https://raw.githubusercontent.com/nre-edu/arabic-motion/main/install/arabic-motion-text-only.zip | https://raw.githubusercontent.com/nre-edu/arabic-motion/main/install/arabic-motion.md (7,756 words) | https://raw.githubusercontent.com/nre-edu/arabic-motion/main/install/arabic-motion.mdc |
+| `arabic-motion` | https://raw.githubusercontent.com/nre-edu/arabic-motion/main/install/arabic-motion.zip (277 KB) | https://raw.githubusercontent.com/nre-edu/arabic-motion/main/install/arabic-motion-text-only.zip | https://raw.githubusercontent.com/nre-edu/arabic-motion/main/install/arabic-motion.md (7,981 words) | https://raw.githubusercontent.com/nre-edu/arabic-motion/main/install/arabic-motion.mdc |
 
 These links follow branch `main`, which always holds the latest version. For a fixed version, replace `main` in these URLs with a release tag or commit hash.
