@@ -11,7 +11,7 @@
     "layout": "card",
     "area": { "x": 70, "y": 300, "w": 940, "h": 940 },
     "radius": 36,
-    "fit": "cover",
+    "fit": "auto",
     "motion": "push-in",
     "amount": 0.06
   },

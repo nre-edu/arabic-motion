@@ -89,7 +89,7 @@ python "<skill>/scripts/analyze_ref.py"
 |---|---|
 | المقاس من `request.md` (عمودي / أفقي / مربع) | `format`: 1080×1920 / 1920×1080 / 1080×1080، ثم عدّل `image.area` ليناسبه |
 | الصورة تملأ الإطار / داخل بطاقة | `image.layout`: `full` / `card`، و`image.area`، و`image.radius` |
-| الصورة كاملة بلا قص (إنفوجراف) | `image.fit`: `contain` |
+| ملء الإطار أو إظهار الصورة كاملة | `image.fit`: `auto` (الافتراضي: يُظهر الإنفوجراف والصور المختلفة النسبة كاملة، ويملأ الإطار بالصور العادية)، أو `contain` للكل، أو `cover` للكل |
 | تكبير / تصغير / حركة جانبية / ثابتة | `image.motion`: `push-in` / `pull-out` / `pan` / `still`، و`image.amount` (0.04 إلى 0.12) |
 | قطع / تلاشٍ / انزلاق / مسح | `transition.type`: `cut` / `fade` / `slide` / `wipe`، و`transition.dur` |
 | مكان النص | `text.position`: `bottom` / `top` / `center` |
@@ -100,7 +100,7 @@ python "<skill>/scripts/analyze_ref.py"
 | المؤثرات | `sfx.transition`، `sfx.emphasis`، `sfx.text`، `sfx.gain` |
 | شريط تقدم | `progressBar` |
 
-الإنفوجراف: استعمل `fit: contain` حتى لا يُقص، وحركة خفيفة (`amount` 0.03 تقريبًا) حتى يبقى مقروءًا.
+الإنفوجراف: `fit: auto` يعرضه كاملًا تلقائيًا إن كان اسمه يحوي chart أو info أو إنفو أو مخطط، أو كانت نسبته مختلفة عن الإطار. واستعمل معه حركة خفيفة (`amount` 0.03 تقريبًا) حتى يبقى مقروءًا.
 
 ما لا تعبّر عنه هذه الحقول (افتتاح خاص، عنصر رسومي متكرر، ختام بشعار) يُضاف بتعديل `render/scenes/story.js` في المشروع، وفق [الرندر](rendering.md) و[الطباعة العربية](arabic-typography.md).
 

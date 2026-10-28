@@ -48,7 +48,8 @@ def licences(arg):
 
 
 def cmd_search(a):
-    q = urllib.parse.urlencode({"q": a.query, "license": ",".join(sorted(licences(a.licence))), "page_size": a.limit})
+    # Plain commas (not %2C) match the form most clients send, so Openverse can answer from its cache.
+    q = urllib.parse.urlencode({"q": a.query, "license": ",".join(sorted(licences(a.licence))), "page_size": a.limit}, safe=",")
     data = get_json(f"{API}?{q}")
     rows = []
     for r in data.get("results", []):

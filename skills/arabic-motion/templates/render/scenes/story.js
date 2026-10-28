@@ -56,7 +56,7 @@ const scene = {
       if (i > 0 && sfx.transition) list.push({ at: +(s.start - 0.08).toFixed(3), sound: sfx.transition, gain });
     });
     B.beats.forEach((b, i) => {
-      const at = +(S.leadIn + b.start + (S.text.delay ?? 0.1)).toFixed(3);
+      const at = +textStart(b, i).toFixed(3);
       const m = MOOD[b.mood] ?? MOOD.neutral;
       if (m.sfx && sfx.emphasis) list.push({ at, sound: sfx.emphasis, gain: gain + 2 });
       else if (sfx.text && i > 0) list.push({ at, sound: sfx.text, gain: gain - 4 });
@@ -113,7 +113,8 @@ const scene = {
     // Segment text. The outgoing segment's text stays until the transition carries it away,
     // so a segment without an image never leaves an empty frame.
     const prev = idx > 0 ? st.shots[idx - 1] : null;
-    if (tp < 1 && prev && prev.beat !== cur.beat) drawText(ctx, api, st, prev.beat, t, 1 - tp);
+    // Outgoing text is gone by the middle of the transition, before the new text starts.
+    if (tp < 1 && prev && prev.beat !== cur.beat) drawText(ctx, api, st, prev.beat, t, Math.max(0, 1 - tp * 2));
     drawText(ctx, api, st, cur.beat, t, 1);
 
     // Optional progress bar (right to left).
@@ -125,13 +126,21 @@ const scene = {
   },
 };
 
+// When a segment's text starts: after the configured delay, and never before the middle of
+// the transition into it, so two segments' texts never share the screen. Cues use it too.
+function textStart(beat, i) {
+  const tr = S.transition;
+  const wait = i > 0 && tr.type !== 'cut' ? tr.dur * 0.5 : 0;
+  return S.leadIn + beat.start + Math.max(S.text.delay ?? 0.1, wait);
+}
+
 function drawText(ctx, api, st, b, t, alpha) {
   const l = st.texts[b];
   if (!l || alpha <= 0) return;
   const { width: W, progress, arabic } = api;
   const beat = B.beats[b];
   const m = MOOD[beat.mood] ?? MOOD.neutral;
-  const start = S.leadIn + beat.start + (S.text.delay ?? 0.1);
+  const start = textStart(beat, b);
   ctx.save();
   ctx.globalAlpha *= alpha;
   if (S.text.box) {
@@ -148,6 +157,17 @@ function drawText(ctx, api, st, b, t, alpha) {
     effect: m.effect ?? S.text.effect, color: S.palette.text,
   });
   ctx.restore();
+}
+
+// 'auto' (default): show the whole image when cropping would lose content, that is an
+// infographic/chart by name or an image whose proportions differ clearly from its frame.
+const INFOGRAPHIC = /chart|graph|info|diagram|انفو|إنفو|رسم|مخطط|جدول/i;
+function fitMode(name, img, a) {
+  const f = S.image.fit ?? 'auto';
+  if (f !== 'auto') return f;
+  if (INFOGRAPHIC.test(name ?? '')) return 'contain';
+  const r = img.width / img.height / (a.w / a.h);
+  return r > 1.25 || r < 0.8 ? 'contain' : 'cover';
 }
 
 function drawShot(ctx, api, st, shot, t, p, type, dir) {
@@ -170,13 +190,14 @@ function drawShot(ctx, api, st, shot, t, p, type, dir) {
     const panX = m === 'pan' ? lerp(1, -1, ease.inOutQuad(k)) * S.image.amount * 400 : 0;
     const full = S.image.layout === 'full';
     const a = full ? { x: 0, y: 0, w: W, h: H } : S.image.area;
-    const fit = S.image.fit === 'contain' ? Math.min(a.w / img.width, a.h / img.height) : Math.max(a.w / img.width, a.h / img.height);
+    const contain = fitMode(shot.image, img, a) === 'contain';
+    const fit = contain ? Math.min(a.w / img.width, a.h / img.height) : Math.max(a.w / img.width, a.h / img.height);
     const w = img.width * fit * zoom;
     const h = img.height * fit * zoom;
     ctx.save();
     ctx.beginPath();
     full ? ctx.rect(a.x, a.y, a.w, a.h) : ctx.roundRect(a.x, a.y, a.w, a.h, S.image.radius ?? 0);
-    if (!full && S.image.fit === 'contain') {
+    if (!full && contain) {
       ctx.fillStyle = P.surface;
       ctx.fill();
     }

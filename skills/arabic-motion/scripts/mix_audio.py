@@ -50,6 +50,7 @@ def main():
     a = ap.parse_args()
 
     ffmpeg = os.environ.get("AM_FFMPEG", "ffmpeg")
+    ffprobe = os.environ.get("AM_FFPROBE", "ffprobe")
     video = Path(a.video)
     cues_path = Path(a.cues) if a.cues else video.parent / f"{video.stem}.cues.json"
     data = json.loads(cues_path.read_text(encoding="utf-8")) if cues_path.exists() else {}
@@ -101,13 +102,23 @@ def main():
     if not labels:
         sys.exit("nothing to mix: no cues, voice or music")
 
-    chains.append(
-        f"{''.join(labels)}amix=inputs={len(labels)}:duration=longest:normalize=0,apad,"
-        f"loudnorm=I={a.lufs}:TP=-1.5:LRA=11,aresample=48000[mix]"
-    )
+    chains.append(f"{''.join(labels)}amix=inputs={len(labels)}:duration=longest:normalize=0,apad[pre]")
+    graph = ";".join(chains)
+    length = subprocess.run([ffprobe, "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", str(video)],
+                            capture_output=True, text=True).stdout.strip()
+
+    # Two-pass loudness normalisation: measure first, then apply linearly, so the true peak
+    # stays under the ceiling (single-pass loudnorm can overshoot it). TP target leaves room for AAC.
+    target = f"I={a.lufs}:TP=-2.0:LRA=11"
+    probe = subprocess.run([ffmpeg, "-hide_banner", *inputs, "-filter_complex", f"{graph};[pre]loudnorm={target}:print_format=json[m]",
+                            "-map", "[m]", "-t", length, "-f", "null", "-"], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    stats = json.loads(probe.stderr[probe.stderr.rfind("{"):probe.stderr.rfind("}") + 1])
+    measured = (f"measured_I={stats['input_i']}:measured_TP={stats['input_tp']}:measured_LRA={stats['input_lra']}:"
+                f"measured_thresh={stats['input_thresh']}:offset={stats['target_offset']}:linear=true")
+
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
-    cmd = [ffmpeg, "-y", "-loglevel", "error", *inputs, "-filter_complex", ";".join(chains),
-           "-map", "0:v", "-map", "[mix]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", a.out]
+    cmd = [ffmpeg, "-y", "-loglevel", "error", *inputs, "-filter_complex", f"{graph};[pre]loudnorm={target}:{measured},aresample=48000[mix]",
+           "-map", "0:v", "-map", "[mix]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", length, a.out]
     subprocess.run(cmd, check=True)
 
     meas = subprocess.run([ffmpeg, "-hide_banner", "-i", a.out, "-af", "ebur128=peak=true", "-f", "null", "-"],

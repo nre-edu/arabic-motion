@@ -68,16 +68,22 @@ def sheet(ffmpeg, frames_glob_dir, prefix, count, out, cols=6):
 def palette(ffmpeg, sources, top=6):
     """sources: list of (path, seconds), seconds None for a still image."""
     counts = Counter()
+    sums = {}
     for path, t in sources:
         seek = ["-ss", f"{t:.3f}"] if t is not None else []
         raw = subprocess.run([ffmpeg, "-loglevel", "error", *seek, "-i", str(path), "-frames:v", "1",
                               "-vf", "scale=48:48", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True).stdout
         for i in range(0, len(raw) - 2, 3):
-            counts[(raw[i] >> 4, raw[i + 1] >> 4, raw[i + 2] >> 4)] += 1
+            px = (raw[i], raw[i + 1], raw[i + 2])
+            key = (px[0] >> 4, px[1] >> 4, px[2] >> 4)
+            counts[key] += 1
+            s = sums.setdefault(key, [0, 0, 0])
+            for k in range(3):
+                s[k] += px[k]
     total = sum(counts.values()) or 1
     out = []
-    for (r, g, b), c in counts.most_common(40):
-        rgb = (r * 16 + 8, g * 16 + 8, b * 16 + 8)
+    for key, c in counts.most_common(40):
+        rgb = tuple(round(v / c) for v in sums[key])  # the real average colour of the bin, not its centre
         if all(sum((x - y) ** 2 for x, y in zip(rgb, o["rgb"])) > 2500 for o in out):
             out.append({"hex": "#%02x%02x%02x" % rgb, "rgb": rgb, "share": round(c / total, 3)})
         if len(out) == top:
@@ -108,7 +114,7 @@ def analyze_video(ffmpeg, ffprobe, video, frames, out, threshold):
         mids = [mids[round(i * (len(mids) - 1) / 23)] for i in range(24)]
     for i, t in enumerate(mids, 1):
         grab(ffmpeg, video, t, frames / f"shot-{i:02d}.jpg")
-    sheet(ffmpeg, frames, "shot", len(mids), out / "shots.jpg")
+    sheet(ffmpeg, frames, "shot", len(mids), out / "shots.jpg", cols=min(6, len(mids)))
     opening = [t / 2 for t in range(0, 7) if t / 2 < info["duration"]]
     for i, t in enumerate(opening, 1):
         grab(ffmpeg, video, t, frames / f"open-{i:02d}.jpg")

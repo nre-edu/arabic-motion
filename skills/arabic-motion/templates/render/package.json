@@ -4,6 +4,6 @@
   "type": "module",
   "description": "Deterministic Canvas renderer for arabic-motion projects",
   "dependencies": {
-    "playwright": "1.48.2"
+    "playwright": "1.63.0"
   }
 }
