@@ -1,0 +1,73 @@
+{
+  "name": "arabic-motion",
+  "version": "0.5.0",
+  "description": "Arabic-first motion video assembler and guide: the user prepares the script (with voice tags), the narration audio, images or infographics and a style reference (a video, an infographic or a Pinterest image); the skill checks the inputs, analyses the reference style, syncs to the voice and renders an MP4 with RTL-correct Arabic text and sound effects. Use for موشن جرافيك، ركّب الفيديو، فيديو مثل هذا المرجع، ريل من صوري وصوتي، motion graphics from my assets. Not for writing scripts, generating voice or images, posters, or slide decks.",
+  "language": "ar",
+  "license": "MIT",
+  "entry_points": {
+    "skill": "SKILL.md"
+  },
+  "triggers": {
+    "use_when": [
+      "تركيب فيديو موشن من سكربت وصوت وصور جهزها المستخدم",
+      "السؤال عما يجب تجهيزه لفيديو موشن",
+      "فيديو بأسلوب مرجع: فيديو أو إنفوجراف أو صورة من Pinterest",
+      "Assemble Arabic voiceover and images into a motion video",
+      "متابعة مشروع موشن قائم"
+    ],
+    "do_not_use_when": [
+      "كتابة سكربت أو توليد صوت أو صور",
+      "صورة ثابتة أو بوستر بلا حركة",
+      "عرض تقديمي بشرائح",
+      "شرح خطوات After Effects أو Premiere",
+      "نسخ محتوى فيديو مرجعي"
+    ]
+  },
+  "references": [
+    {
+      "file": "references/checklist.md",
+      "title": "تشيك ليست الموشن جرافيك: من الفكرة إلى فيديو MP4",
+      "summary": "قائمة المستخدم مربوطة بخطوات المهارة وملفاتها، ووضع المحادثة؛ تُقرأ في دور المرشد."
+    },
+    {
+      "file": "references/workflow.md",
+      "title": "سير العمل: من ملفات المستخدم إلى الفيديو",
+      "summary": "تقسيم الأدوار والمراحل وهيكل المشروع؛ يُقرأ في بداية كل مشروع."
+    },
+    {
+      "file": "references/inputs.md",
+      "title": "تجهيز الملفات (دليل المستخدم)",
+      "summary": "تنسيق السكربت والتاجات والصوت والصور والمرجع؛ يُعطى للمستخدم كمرشد."
+    },
+    {
+      "file": "references/reference-analysis.md",
+      "title": "تحليل المرجع وبطاقة الأسلوب",
+      "summary": "قياس المرجع وقراءة لقطاته وتحويل الأسلوب إلى style.json؛ يُقرأ بعد فحص الملفات."
+    },
+    {
+      "file": "references/sound.md",
+      "title": "الصوت: التعليق والمؤثرات والخلط",
+      "summary": "توقيت التعليق ومصادر المؤثرات ومواضعها والخلط؛ يُقرأ عند التوقيت والمؤثرات."
+    },
+    {
+      "file": "references/arabic-typography.md",
+      "title": "الطباعة العربية المتحركة",
+      "summary": "قواعد عدم كسر الحروف والحركات الآمنة والخطوط؛ يُقرأ قبل أي نص عربي."
+    },
+    {
+      "file": "references/rendering.md",
+      "title": "الرندر الحتمي",
+      "summary": "مشهد التركيب وواجهة المشاهد والأوامر؛ يُقرأ عند البناء والرندر."
+    },
+    {
+      "file": "references/setup.md",
+      "title": "التجهيز والمتطلبات",
+      "summary": "المتطلبات والفحص والتثبيت واختبار البيئة؛ يُقرأ في أول تشغيل."
+    },
+    {
+      "file": "references/qa-delivery.md",
+      "title": "الفحص والتسليم",
+      "summary": "الفحص الداخلي والمقارنة بالمرجع والتسليم؛ يُقرأ قبل كل معاينة."
+    }
+  ]
+}

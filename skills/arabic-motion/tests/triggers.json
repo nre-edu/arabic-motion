@@ -1,0 +1,18 @@
+{
+  "_note": "Manual trigger test set. Run each prompt against your target environment and record whether the skill activated.",
+  "should_trigger": [
+    "جهزت الصوت والصور والمرجع، ركّب لي الفيديو",
+    "أبي أسوي ريل موشن، وش أجهز من ملفات؟",
+    "Assemble my Arabic voiceover and infographics into a motion video like this reference",
+    "سوّ الفيديو بنفس أسلوب هذا الريل بس بصوري وصوتي",
+    "غيّرت ملف الصوت، حدّث توقيت الفيديو",
+    "عندي إنفوجراف من بنترست، ركّب صوري وصوتي بنفس شكله"
+  ],
+  "should_not_trigger": [
+    "اكتب لي سكربت ريل عن فتح التسجيل",
+    "حوّل هذا النص لصوت بالذكاء الاصطناعي",
+    "صمم لي إنفوجراف عن نسب التوظيف",
+    "سوّ لي عرض بوربوينت فيه انتقالات",
+    "كيف أسوي text animation في After Effects؟"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "arabic-motion-render",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic Canvas renderer for arabic-motion projects",
+  "dependencies": {
+    "playwright": "1.48.2"
+  }
+}

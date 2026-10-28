@@ -1,0 +1,30 @@
+{
+  "format": { "width": 1080, "height": 1920, "fps": 30 },
+  "leadIn": 0.4,
+  "tail": 1.0,
+  "voiceGain": 0,
+  "palette": { "bg": "#0f1b2d", "surface": "#1d3557", "text": "#f7f7f2", "accent": "#f4b942", "muted": "#a8b3c7" },
+  "fonts": {
+    "body": { "family": "Cairo", "weight": 700, "src": "fonts/cairo/Cairo-Variable.ttf" }
+  },
+  "image": {
+    "layout": "card",
+    "area": { "x": 70, "y": 300, "w": 940, "h": 940 },
+    "radius": 36,
+    "fit": "cover",
+    "motion": "push-in",
+    "amount": 0.06
+  },
+  "text": {
+    "position": "bottom",
+    "size": 68,
+    "margin": 90,
+    "effect": "rise",
+    "stagger": 0.08,
+    "delay": 0.1,
+    "box": false
+  },
+  "transition": { "type": "slide", "dur": 0.4 },
+  "sfx": { "transition": "whoosh", "emphasis": "pop", "text": null, "gain": -10 },
+  "progressBar": false
+}
