@@ -1,5 +1,7 @@
 # arabic-motion «موشن عربي»
 
+**إعداد: د. محمد رفعت** · [nre-edu](https://github.com/nre-edu)
+
 <!-- foundry:install:start -->
 > **AI agents / وكلاء الذكاء الاصطناعي:** to install, read [INSTALL.md](https://raw.githubusercontent.com/nre-edu/arabic-motion/main/INSTALL.md) and follow the path for your environment.
 
@@ -83,4 +85,4 @@
 | العمل في أدوات غير Claude Code | غير مُتحقَّق |
 
 ## الرخصة
-MIT © 2026 nre-edu (الملف [`LICENSE`](LICENSE)، ونسخة منه داخل مجلد المهارة لترافق كل حزمة). الخطوط والمؤثرات المنزَّلة تبقى برخصها الخاصة، ويُحفظ مصدر كل منها في المشروع. أصول المرجع (صوره وموسيقاه ورسومه) لا تُستعمل؛ يُؤخذ منه الأسلوب فقط.
+MIT © 2026 د. محمد رفعت (nre-edu). نص الرخصة في [`LICENSE`](LICENSE)، ونسخة منه داخل مجلد المهارة لترافق كل حزمة. الخطوط والمؤثرات المنزَّلة تبقى برخصها الخاصة، ويُحفظ مصدر كل منها في المشروع. أصول المرجع (صوره وموسيقاه ورسومه) لا تُستعمل؛ يُؤخذ منه الأسلوب فقط.

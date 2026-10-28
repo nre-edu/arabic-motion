@@ -1,6 +1,7 @@
 {
   "name": "arabic-motion",
-  "version": "0.5.0",
+  "version": "0.5.1",
+  "author": "د. محمد رفعت (nre-edu)",
   "description": "Arabic-first motion video assembler and guide: the user prepares the script (with voice tags), the narration audio, images or infographics and a style reference (a video, an infographic or a Pinterest image); the skill checks the inputs, analyses the reference style, syncs to the voice and renders an MP4 with RTL-correct Arabic text and sound effects. Use for موشن جرافيك، ركّب الفيديو، فيديو مثل هذا المرجع، ريل من صوري وصوتي، motion graphics from my assets. Not for writing scripts, generating voice or images, posters, or slide decks.",
   "language": "ar",
   "license": "MIT",
