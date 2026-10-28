@@ -10,7 +10,9 @@ Expected project layout (created by init_project.py):
 
 Script line format:
   1. [excited] هل تعرف أن ٩٠٪ من خريجينا توظفوا؟ {صورة 1} {على الشاشة: ٩٠٪ توظفوا}
-  [square brackets]  = voice/emotion tags for the TTS tool: removed from screen text, mapped to a mood
+  [square] or <angle> brackets = voice/emotion tags for the TTS tool (Google AI Studio uses <short pause>,
+                     <chuckle> ...): removed from screen text, mapped to a mood. A pause tag at the very
+                     start of a line marks a pause before it, so it counts for the previous segment.
   {curly braces}     = our own markers: {صورة 2} / {image 2,3}, {على الشاشة: ...} / {screen: ...}
 
 Usage (from the project folder):  python <skill>/scripts/check_inputs.py
@@ -30,7 +32,7 @@ VIDEO = {".mp4", ".mov", ".webm", ".mkv", ".m4v"}
 
 # Tag words (English or Arabic) -> mood used by the scene for pace and sound.
 MOODS = {
-    "energetic": ["excited", "enthusiastic", "happy", "cheerful", "energetic", "surprised", "amazed", "laugh", "laughing", "shout", "proud",
+    "energetic": ["excited", "enthusiastic", "happy", "cheerful", "energetic", "surprised", "amazed", "laugh", "laughing", "chuckle", "giggle", "shout", "proud",
                   "حماس", "متحمس", "سعيد", "مفاجأة", "فرح", "فخر"],
     "calm": ["calm", "soft", "gentle", "whisper", "whispering", "warm", "relaxed", "sad", "tender",
              "هادئ", "هدوء", "همس", "دافئ", "حزين"],
@@ -40,7 +42,7 @@ MOODS = {
 }
 
 LINE = re.compile(r"^\s*(\d+)\s*[.)\-:]\s*(.+)$")
-SQUARE = re.compile(r"\[([^\]]+)\]")
+SQUARE = re.compile(r"\[([^\]]+)\]|<([^<>]+)>")
 CURLY = re.compile(r"\{([^}]+)\}")
 IMAGE_KEY = re.compile(r"^(?:صورة|صور|image|img|images)\s*:?\s*(.+)$", re.I)
 SCREEN_KEY = re.compile(r"^(?:على الشاشة|الشاشة|نص|screen|on ?screen|text)\s*:\s*(.+)$", re.I)
@@ -73,7 +75,10 @@ def parse_script(text):
             problems.append(f"line without a number, skipped: {raw.strip()[:60]}")
             continue
         n, body = int(m.group(1)), m.group(2)
-        tags = SQUARE.findall(body)
+        tags = [a or b for a, b in SQUARE.findall(body)]
+        leading = re.match(r"^\s*(?:\[([^\]]+)\]|<([^<>]+)>)", body)
+        if leading and segments and mood_of([leading.group(1) or leading.group(2)])[1]:
+            segments[-1]["pause_after"] = True  # "<short pause> ..." at line start = pause before this line
         images, screen = [], None
         for marker in CURLY.findall(body):
             im, sc = IMAGE_KEY.match(marker.strip()), SCREEN_KEY.match(marker.strip())
@@ -84,7 +89,10 @@ def parse_script(text):
             else:
                 problems.append(f"segment {n}: unknown marker {{{marker}}}")
         spoken = re.sub(r"\s+", " ", CURLY.sub("", SQUARE.sub("", body))).strip()
-        mood, pause_after, unknown = mood_of(tags)
+        mood, _, unknown = mood_of(tags)
+        # Only a pause tag at the end of the line (before any {markers}) is a pause after this segment.
+        trailing = re.search(r"(?:\[([^\]]+)\]|<([^<>]+)>)\s*(?:\{[^}]*\}\s*)*$", body)
+        pause_after = bool(trailing and mood_of([trailing.group(1) or trailing.group(2)])[1])
         for u in unknown:
             problems.append(f"segment {n}: tag [{u}] not recognised, ask the user what it means")
         segments.append({"n": n, "spoken": spoken, "onscreen": screen or spoken, "screen_given": bool(screen),

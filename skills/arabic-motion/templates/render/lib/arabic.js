@@ -20,6 +20,12 @@ export function tokenize(text) {
     if (prev && !hasArabic(w) && !hasArabic(prev.text)) prev.text += ' ' + w;
     else out.push({ text: w });
   }
+  // A Latin run is drawn left to right, so its trailing punctuation would land on its right,
+  // next to the Arabic word before it. In an RTL line that punctuation belongs on the left.
+  for (const tk of out) {
+    const m = !hasArabic(tk.text) && tk.text.match(/^(.*?[^.,:;!?…،؛؟])([.,:;!?…،؛؟]+)$/);
+    if (m) tk.text = m[2] + m[1];
+  }
   return out;
 }
 

@@ -99,6 +99,11 @@ python "<skill>/scripts/analyze_ref.py"
 | الألوان | `palette` |
 | المؤثرات | `sfx.transition`، `sfx.emphasis`، `sfx.text`، `sfx.gain` |
 | شريط تقدم | `progressBar` |
+| الصورة لوحة عائمة تكبر كلها مع دفع الكاميرا (بلا قصّ داخلها) | `image.layout`: `float`، و`image.glow` (لون التوهج)، و`image.glowSize` |
+| خلفية داكنة بإضاءة متحركة (نيون) | `background`: `{"type": "gradient", "colors": [...], "glows": [{"x","y","r","color"}], "drift"}` |
+| مسح سريع بضبابية حركة | `transition.type`: `whip`، و`transition.blur` (بكسل، نحو 28) |
+| ترجمة نصية متتابعة بدل كتلة نص | `text.mode`: `captions`، و`text.maxWords` (8 إلى 10). توقيت الأجزاء تقديري من طول النص |
+| بطاقة نهاية | `endCard`: `{"dur", "bg", "title", "subtitle", "titleColor", "subtitleColor", "accent"}` |
 
 الإنفوجراف: `fit: auto` يعرضه كاملًا تلقائيًا إن كان اسمه يحوي chart أو info أو إنفو أو مخطط، أو كانت نسبته مختلفة عن الإطار. واستعمل معه حركة خفيفة (`amount` 0.03 تقريبًا) حتى يبقى مقروءًا.
 
